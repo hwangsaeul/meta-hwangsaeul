@@ -1,0 +1,400 @@
+From 08b14858620d5a973ea55de9efb1392be5a03d50 Mon Sep 17 00:00:00 2001
+From: Raghavendra <raghavendra.rao@collabora.com>
+Date: Tue, 27 Oct 2020 11:52:09 +0530
+Subject: [PATCH] srt: Add authentication to srtsink and srtsrc elements
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-plugins-bad/-/merge_requests/1725>
+---
+ ext/srt/gstsrtobject.c | 89 +++++++++++++++++++++++++++++++++++++++++-
+ ext/srt/gstsrtobject.h |  2 +
+ ext/srt/gstsrtsink.c   | 62 ++++++++++++++++++++++++++++-
+ ext/srt/gstsrtsink.h   |  4 ++
+ ext/srt/gstsrtsrc.c    | 62 ++++++++++++++++++++++++++++-
+ ext/srt/gstsrtsrc.h    |  4 ++
+ 6 files changed, 219 insertions(+), 4 deletions(-)
+
+diff --git a/ext/srt/gstsrtobject.c b/ext/srt/gstsrtobject.c
+index 016870468..842a6e59a 100644
+--- a/ext/srt/gstsrtobject.c
++++ b/ext/srt/gstsrtobject.c
+@@ -51,6 +51,7 @@ enum
+   PROP_STATS,
+   PROP_WAIT_FOR_CONNECTION,
+   PROP_STREAMID,
++  PROP_AUTHENTICATION,
+   PROP_LAST
+ };
+ 
+@@ -346,6 +347,9 @@ gst_srt_object_set_property_helper (GstSRTObject * srtobject,
+     case PROP_STREAMID:
+       gst_structure_set_value (srtobject->parameters, "streamid", value);
+       break;
++    case PROP_AUTHENTICATION:
++      srtobject->authentication = g_value_get_boolean (value);
++      break;
+     default:
+       goto err;
+   }
+@@ -450,6 +454,9 @@ gst_srt_object_get_property_helper (GstSRTObject * srtobject,
+           gst_structure_get_string (srtobject->parameters, "streamid"));
+       GST_OBJECT_UNLOCK (srtobject->element);
+       break;
++    case PROP_AUTHENTICATION:
++      g_value_set_boolean (value, srtobject->authentication);
++      break;
+     default:
+       return FALSE;
+   }
+@@ -594,6 +601,22 @@ gst_srt_object_install_properties_helper (GObjectClass * gobject_class)
+           "Stream ID for the SRT access control", "",
+           G_PARAM_READWRITE | GST_PARAM_MUTABLE_READY |
+           G_PARAM_STATIC_STRINGS));
++
++  /**
++   * GstSRTSink:authentication:
++   *
++   * Boolean to authenticate a connection.  If TRUE,
++   * the incoming connection is authenticated. Else,
++   * all the connections are accepted.
++   *
++   * Since: 1.20
++   *
++   */
++  g_object_class_install_property (gobject_class, PROP_AUTHENTICATION,
++      g_param_spec_boolean ("authentication",
++          "Authentication",
++          "Authenticate a connection",
++          FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ }
+ 
+ static void
+@@ -838,6 +861,62 @@ thread_func (gpointer data)
+   }
+ }
+ 
++static GSocketAddress *
++peeraddr_to_g_socket_address (const struct sockaddr *peeraddr)
++{
++  gsize peeraddr_len;
++
++  switch (peeraddr->sa_family) {
++    case AF_INET:
++      peeraddr_len = sizeof (struct sockaddr_in);
++      break;
++    case AF_INET6:
++      peeraddr_len = sizeof (struct sockaddr_in6);
++      break;
++    default:
++      g_warning ("Unsupported address family %d", peeraddr->sa_family);
++      return NULL;
++  }
++  return g_socket_address_new_from_native ((gpointer) peeraddr, peeraddr_len);
++}
++
++static gint
++srt_listen_callback_func (GstSRTObject * self, SRTSOCKET sock, int hs_version,
++    const struct sockaddr *peeraddr, const char *stream_id)
++{
++  GSocketAddress *addr = peeraddr_to_g_socket_address (peeraddr);
++
++  if (!addr) {
++    GST_WARNING_OBJECT (self->element,
++        "Invalid peer address. Rejecting sink %d streamid: %s", sock,
++        stream_id);
++    return -1;
++  }
++
++  if (self->authentication) {
++    gboolean authenticated = FALSE;
++
++    /* notifying caller-connecting */
++    g_signal_emit_by_name (self->element, "caller-connecting", addr,
++        stream_id, &authenticated);
++
++    if (!authenticated)
++      goto reject;
++  }
++
++  GST_DEBUG_OBJECT (self->element,
++      "Accepting sink %d streamid: %s", sock, stream_id);
++  g_object_unref (addr);
++  return 0;
++reject:
++  /* notifying caller-rejected */
++  GST_WARNING_OBJECT (self->element,
++      "Rejecting sink %d streamid: %s", sock, stream_id);
++  g_signal_emit_by_name (self->element, "caller-rejected", addr, stream_id);
++  g_object_unref (addr);
++  return -1;
++}
++
+ static gboolean
+ gst_srt_object_wait_connect (GstSRTObject * srtobject,
+     GCancellable * cancellable, gpointer sa, size_t sa_len, GError ** error)
+@@ -916,10 +995,16 @@ gst_srt_object_wait_connect (GstSRTObject * srtobject,
+ 
+   srtobject->listener_sock = sock;
+ 
++  /* Register the SRT listen callback */
++  if (srt_listen_callback (srtobject->listener_sock,
++          (srt_listen_callback_fn *) srt_listen_callback_func, srtobject)) {
++    goto failed;
++  }
++
+   srtobject->thread =
+       g_thread_try_new ("GstSRTObjectListener", thread_func, srtobject, error);
+-
+-  if (*error != NULL) {
++  if (srtobject->thread == NULL) {
++    GST_ERROR_OBJECT (srtobject->element, "Failed to start thread");
+     goto failed;
+   }
+ 
+diff --git a/ext/srt/gstsrtobject.h b/ext/srt/gstsrtobject.h
+index 09950feaf..93b2a077f 100644
+--- a/ext/srt/gstsrtobject.h
++++ b/ext/srt/gstsrtobject.h
+@@ -70,6 +70,8 @@ struct _GstSRTObject
+ 
+   gboolean                     wait_for_connection;
+ 
++  gboolean                     authentication;
++
+   guint64                      previous_bytes;
+ };
+ 
+diff --git a/ext/srt/gstsrtsink.c b/ext/srt/gstsrtsink.c
+index 59e72f3b7..5eeecd20b 100644
+--- a/ext/srt/gstsrtsink.c
++++ b/ext/srt/gstsrtsink.c
+@@ -56,7 +56,8 @@ enum
+ {
+   SIG_CALLER_ADDED,
+   SIG_CALLER_REMOVED,
+-
++  SIG_CALLER_REJECTED,
++  SIG_CALLER_CONNECTING,
+   LAST_SIGNAL
+ };
+ 
+@@ -67,6 +68,10 @@ static void gst_srt_sink_uri_handler_init (gpointer g_iface,
+ static gchar *gst_srt_sink_uri_get_uri (GstURIHandler * handler);
+ static gboolean gst_srt_sink_uri_set_uri (GstURIHandler * handler,
+     const gchar * uri, GError ** error);
++static gboolean default_caller_connecting (GstSRTSink * self,
++    GSocketAddress * addr, const gchar * username, gpointer data);
++static gboolean authentication_accumulator (GSignalInvocationHint * ihint,
++    GValue * return_accu, const GValue * handler_return, gpointer data);
+ 
+ #define gst_srt_sink_parent_class parent_class
+ G_DEFINE_TYPE_WITH_CODE (GstSRTSink, gst_srt_sink,
+@@ -74,6 +79,25 @@ G_DEFINE_TYPE_WITH_CODE (GstSRTSink, gst_srt_sink,
+     G_IMPLEMENT_INTERFACE (GST_TYPE_URI_HANDLER, gst_srt_sink_uri_handler_init)
+     GST_DEBUG_CATEGORY_INIT (GST_CAT_DEFAULT, "srtsink", 0, "SRT Sink"));
+ 
++static gboolean
++default_caller_connecting (GstSRTSink * self,
++    GSocketAddress * addr, const gchar * stream_id, gpointer data)
++{
++  /* Accept all connections. */
++  return TRUE;
++}
++
++static gboolean
++authentication_accumulator (GSignalInvocationHint * ihint,
++    GValue * return_accu, const GValue * handler_return, gpointer data)
++{
++  gboolean ret = g_value_get_boolean (handler_return);
++  /* Handlers return TRUE on authentication success and we want to stop on
++   * the first failure. */
++  g_value_set_boolean (return_accu, ret);
++  return ret;
++}
++
+ static void
+ gst_srt_sink_set_property (GObject * object,
+     guint prop_id, const GValue * value, GParamSpec * pspec)
+@@ -280,6 +304,7 @@ gst_srt_sink_class_init (GstSRTSinkClass * klass)
+   gobject_class->set_property = gst_srt_sink_set_property;
+   gobject_class->get_property = gst_srt_sink_get_property;
+   gobject_class->finalize = gst_srt_sink_finalize;
++  klass->caller_connecting = default_caller_connecting;
+ 
+   /**
+    * GstSRTSink::caller-added:
+@@ -308,6 +333,41 @@ gst_srt_sink_class_init (GstSRTSinkClass * klass)
+           caller_added), NULL, NULL, NULL, G_TYPE_NONE,
+       2, G_TYPE_INT, G_TYPE_SOCKET_ADDRESS);
+ 
++  /**
++   * GstSRTSink::caller-rejected:
++   * @gstsrtsink: the srtsink element that emitted this signal
++   * @addr: the #GSocketAddress that describes the client socket
++   * @stream_id: the stream Id to which the caller wants to connect
++   *
++   * A caller's connection to srtsink in listener mode has been rejected.
++   *
++   * Since: 1.20
++   *
++   */
++  signals[SIG_CALLER_REJECTED] =
++      g_signal_new ("caller-rejected", G_TYPE_FROM_CLASS (klass),
++      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE,
++      2, G_TYPE_SOCKET_ADDRESS, G_TYPE_STRING);
++
++  /**
++   * GstSRTSink::caller-connecting:
++   * @gstsrtsink: the srtsink element that emitted this signal
++   * @addr: the #GSocketAddress that describes the client socket
++   * @stream_id: the stream Id to which the caller wants to connect
++   *
++   * Whether to accept or reject a caller's connection to srtsink in listener mode.
++   * The Caller's connection is rejected if the callback returns FALSE, else
++   * the connection is accepeted.
++   *
++   * Since: 1.20
++   *
++   */
++  signals[SIG_CALLER_CONNECTING] =
++      g_signal_new ("caller-connecting", G_TYPE_FROM_CLASS (klass),
++      G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (GstSRTSinkClass, caller_connecting),
++      authentication_accumulator, NULL, NULL, G_TYPE_BOOLEAN,
++      2, G_TYPE_SOCKET_ADDRESS, G_TYPE_STRING);
++
+   gst_srt_object_install_properties_helper (gobject_class);
+ 
+   gst_element_class_add_static_pad_template (gstelement_class, &sink_template);
+diff --git a/ext/srt/gstsrtsink.h b/ext/srt/gstsrtsink.h
+index 1976be643..af09f0981 100644
+--- a/ext/srt/gstsrtsink.h
++++ b/ext/srt/gstsrtsink.h
+@@ -56,6 +56,10 @@ struct _GstSRTSinkClass {
+ 
+   void (*caller_added)      (GstSRTSink *self, int sock, GSocketAddress * addr);
+   void (*caller_removed)    (GstSRTSink *self, int sock, GSocketAddress * addr);
++  void (*caller_rejected)   (GstSRTSink *self, GSocketAddress * peer_address,
++    const gchar * stream_id, gpointer data);
++  gboolean (*caller_connecting) (GstSRTSink *self, GSocketAddress * peer_address,
++    const gchar * stream_id, gpointer data);
+ };
+ 
+ GType gst_srt_sink_get_type (void);
+diff --git a/ext/srt/gstsrtsrc.c b/ext/srt/gstsrtsrc.c
+index a6f2740eb..b2c0da940 100644
+--- a/ext/srt/gstsrtsrc.c
++++ b/ext/srt/gstsrtsrc.c
+@@ -59,7 +59,8 @@ enum
+ {
+   SIG_CALLER_ADDED,
+   SIG_CALLER_REMOVED,
+-
++  SIG_CALLER_REJECTED,
++  SIG_CALLER_CONNECTING,
+   LAST_SIGNAL
+ };
+ 
+@@ -70,6 +71,10 @@ static void gst_srt_src_uri_handler_init (gpointer g_iface,
+ static gchar *gst_srt_src_uri_get_uri (GstURIHandler * handler);
+ static gboolean gst_srt_src_uri_set_uri (GstURIHandler * handler,
+     const gchar * uri, GError ** error);
++static gboolean src_default_caller_connecting (GstSRTSrc * self,
++    GSocketAddress * addr, const gchar * username, gpointer data);
++static gboolean src_authentication_accumulator (GSignalInvocationHint * ihint,
++    GValue * return_accu, const GValue * handler_return, gpointer data);
+ 
+ #define gst_srt_src_parent_class parent_class
+ G_DEFINE_TYPE_WITH_CODE (GstSRTSrc, gst_srt_src,
+@@ -77,6 +82,25 @@ G_DEFINE_TYPE_WITH_CODE (GstSRTSrc, gst_srt_src,
+     G_IMPLEMENT_INTERFACE (GST_TYPE_URI_HANDLER, gst_srt_src_uri_handler_init)
+     GST_DEBUG_CATEGORY_INIT (GST_CAT_DEFAULT, "srtsrc", 0, "SRT Source"));
+ 
++static gboolean
++src_default_caller_connecting (GstSRTSrc * self,
++    GSocketAddress * addr, const gchar * stream_id, gpointer data)
++{
++  /* Accept all connections. */
++  return TRUE;
++}
++
++static gboolean
++src_authentication_accumulator (GSignalInvocationHint * ihint,
++    GValue * return_accu, const GValue * handler_return, gpointer data)
++{
++  gboolean ret = g_value_get_boolean (handler_return);
++  /* Handlers return TRUE on authentication success and we want to stop on
++   * the first failure. */
++  g_value_set_boolean (return_accu, ret);
++  return ret;
++}
++
+ static gboolean
+ gst_srt_src_start (GstBaseSrc * bsrc)
+ {
+@@ -333,6 +357,7 @@ gst_srt_src_class_init (GstSRTSrcClass * klass)
+   gobject_class->set_property = gst_srt_src_set_property;
+   gobject_class->get_property = gst_srt_src_get_property;
+   gobject_class->finalize = gst_srt_src_finalize;
++  klass->caller_connecting = src_default_caller_connecting;
+ 
+   /**
+    * GstSRTSrc::caller-added:
+@@ -361,6 +386,41 @@ gst_srt_src_class_init (GstSRTSrcClass * klass)
+           caller_added), NULL, NULL, NULL, G_TYPE_NONE,
+       2, G_TYPE_INT, G_TYPE_SOCKET_ADDRESS);
+ 
++  /**
++   * GstSRTSrc::caller-rejected:
++   * @gstsrtsrc: the srtsrc element that emitted this signal
++   * @addr: the #GSocketAddress that describes the client socket
++   * @stream_id: the stream Id to which the caller wants to connect
++   *
++   * A caller's connection to srtsrc in listener mode has been rejected.
++   *
++   * Since: 1.20
++   *
++   */
++  signals[SIG_CALLER_REJECTED] =
++      g_signal_new ("caller-rejected", G_TYPE_FROM_CLASS (klass),
++      G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (GstSRTSrcClass, caller_rejected),
++      NULL, NULL, NULL, G_TYPE_NONE, 2, G_TYPE_SOCKET_ADDRESS, G_TYPE_STRING);
++
++  /**
++   * GstSRTSrc::caller-connecting:
++   * @gstsrtsrc: the srtsrc element that emitted this signal
++   * @addr: the #GSocketAddress that describes the client socket
++   * @stream_id: the stream Id to which the caller wants to connect
++   *
++   * Whether to accept or reject a caller's connection to srtsrc in listener mode.
++   * The Caller's connection is rejected if the callback returns FALSE, else
++   * the connection is accepeted.
++   *
++   * Since: 1.20
++   *
++   */
++  signals[SIG_CALLER_CONNECTING] =
++      g_signal_new ("caller-connecting", G_TYPE_FROM_CLASS (klass),
++      G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (GstSRTSrcClass, caller_connecting),
++      src_authentication_accumulator, NULL, NULL, G_TYPE_BOOLEAN,
++      2, G_TYPE_SOCKET_ADDRESS, G_TYPE_STRING);
++
+   gst_srt_object_install_properties_helper (gobject_class);
+ 
+   gst_element_class_add_static_pad_template (gstelement_class, &src_template);
+diff --git a/ext/srt/gstsrtsrc.h b/ext/srt/gstsrtsrc.h
+index 0ca9a4b84..34a5be727 100644
+--- a/ext/srt/gstsrtsrc.h
++++ b/ext/srt/gstsrtsrc.h
+@@ -58,6 +58,10 @@ struct _GstSRTSrcClass {
+ 
+   void (*caller_added)      (GstSRTSrc *self, int sock, GSocketAddress * addr);
+   void (*caller_removed)    (GstSRTSrc *self, int sock, GSocketAddress * addr);
++  void (*caller_rejected)   (GstSRTSrc *self, GSocketAddress * peer_address,
++    const gchar * stream_id, gpointer data);
++  gboolean (*caller_connecting) (GstSRTSrc *self, GSocketAddress * peer_address,
++    const gchar * stream_id, gpointer data);
+ };
+ 
+ GType   gst_srt_src_get_type (void);
+-- 
+2.25.1
+

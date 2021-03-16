@@ -1,0 +1,56 @@
+From 6c3522297364eb0c74a9d8746754d1c9e53b146e Mon Sep 17 00:00:00 2001
+From: Jakub Adam <jakub.adam@collabora.com>
+Date: Fri, 16 Oct 2020 19:30:59 +0200
+Subject: [PATCH] srtobject: distinguish authentication error messages
+
+Use GST_RESOURCE_ERROR_NOT_AUTHORIZED code in posted error messages
+related to SRT authentication (e.g. incorrect or missing password) so
+that the application can recognize them more easily.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-plugins-bad/-/merge_requests/1943>
+---
+ ext/srt/gstsrtobject.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/ext/srt/gstsrtobject.c b/ext/srt/gstsrtobject.c
+index 208785367..873a70e9a 100644
+--- a/ext/srt/gstsrtobject.c
++++ b/ext/srt/gstsrtobject.c
+@@ -1538,12 +1538,20 @@ gst_srt_object_read (GstSRTObject * srtobject,
+     if (wsocklen == 1 && rsocklen == 1) {
+       /* Socket reported in wsock AND rsock signifies an error. */
+       gint reason = srt_getrejectreason (wsock);
++      gboolean is_auth_error = (reason == SRT_REJ_BADSECRET
++          || reason == SRT_REJ_UNSECURE);
++
++      if (is_auth_error) {
++        ELEMENT_WARNING_SRTSOCK_ERROR (NOT_AUTHORIZED, reason);
++      }
+ 
+       if (connection_mode == GST_SRT_CONNECTION_MODE_LISTENER) {
+         /* Caller has disappeared. */
+         return 0;
+       } else {
+-        ELEMENT_WARNING_SRTSOCK_ERROR (READ, reason);
++        if (!is_auth_error) {
++          ELEMENT_WARNING_SRTSOCK_ERROR (READ, reason);
++        }
+ 
+         gst_srt_object_close (srtobject);
+         if (!gst_srt_object_open_internal (srtobject, cancellable, error)) {
+@@ -1767,7 +1775,11 @@ gst_srt_object_write_one (GstSRTObject * srtobject,
+       /* Socket reported in wsock AND rsock signifies an error. */
+       gint reason = srt_getrejectreason (wsock);
+ 
+-      ELEMENT_WARNING_SRTSOCK_ERROR (WRITE, reason);
++      if (reason == SRT_REJ_BADSECRET || reason == SRT_REJ_UNSECURE) {
++        ELEMENT_WARNING_SRTSOCK_ERROR (NOT_AUTHORIZED, reason);
++      } else {
++        ELEMENT_WARNING_SRTSOCK_ERROR (WRITE, reason);
++      }
+ 
+       gst_srt_object_close (srtobject);
+       if (!gst_srt_object_open_internal (srtobject, cancellable, error)) {
+-- 
+2.25.1
+
