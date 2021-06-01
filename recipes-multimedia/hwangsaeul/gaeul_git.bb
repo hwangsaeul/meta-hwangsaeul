@@ -19,12 +19,41 @@ SRC_URI = " \
     file://gaeul2.ini \
 "
 
-FILES_${PN} += "\
-    ${datadir}/dbus-1 \
-    ${datadir}/glib-2.0/schemas \
+PACKAGES += "\
+    ${PN}-mjpeg \
+    ${PN}-relay \
+    ${PN}-source \
 "
 
-SYSTEMD_SERVICE_${PN} = "gaeul2-source-agent.service"
+FILES_${PN} = "\
+    ${localstatedir}/hwangsaeul/gaeul2/conf/gaeul2.ini \
+    ${libdir}/libgaeul-2.0.so.* \
+    ${sysconfdir}/default \
+    ${sysconfdir}/gaeul2 \
+"
+
+FILES_${PN}-mjpeg = "\
+    ${bindir}/gaeul2-mjpeg-agent \
+    ${libdir}/libgaeul-mjpeg-2.0.so.* \
+    ${datadir}/dbus-1/system.d/org.hwangsaeul.Gaeul2.MJPEG.conf \
+    ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.MJPEG.gschema.xml \
+"
+
+FILES_${PN}-source = "\
+    ${bindir}/gaeul2-source-agent \
+    ${libdir}/libgaeul-source-2.0.so.* \
+    ${datadir}/dbus-1/system.d/org.hwangsaeul.Gaeul2.Source.conf \
+    ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.Source.gschema.xml \
+"
+
+FILES_${PN}-relay += "\
+    ${bindir}/gaeul2-relay-agent \
+    ${libdir}/libgaeul-relay-2.0.so.* \
+    ${datadir}/dbus-1/system.d/org.hwangsaeul.Gaeul2.Relay.conf \
+    ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.Relay.gschema.xml \
+"
+
+SYSTEMD_SERVICE_${PN}-source = "gaeul2-source-agent.service"
 SYSTEMD_AUTO_ENABLE_gaeul2-source-agent = "enable"
 
 GAEUL2_AGENT_USER = "gaeul"

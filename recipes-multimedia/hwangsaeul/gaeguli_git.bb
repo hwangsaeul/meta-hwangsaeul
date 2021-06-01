@@ -13,7 +13,28 @@ DEPENDS = "glib-2.0 glib-2.0-native json-glib libsoup-2.4 libnl \
 inherit meson pkgconfig
 
 SRCREV = "1dca553f04773c68d1081fb87fc4d958ba56bea5"
-PV = "r1+git${SRCPV}"
+PV = "1.99+git${SRCPV}"
 S = "${WORKDIR}/git"
 
 SRC_URI = "git://github.com/hwangsaeul/gaeguli;protocol=https;branch=master"
+
+PACKAGE_BEFORE_PN += "\
+    ${PN}-adaptor-demo \
+    ${PN}-test \
+    ${PN}-test-dev \
+"
+
+FILES_${PN}-adaptor-demo = "\
+    ${bindir}/gaeguli-adaptor-demo \
+    ${libexecdir}/gaeguli-tc-helper \
+"
+
+FILES_${PN}-test = "\
+    ${libdir}/libgaeguli-test-common-2.0.so.* \
+"
+
+FILES_${PN}-test-dev = "\
+    ${includedir}/gaeguli-2.0/gaeguli/test/* \
+    ${libdir}/libgaeguli-test-common-2.0.so \
+    ${libdir}/pkgconfig/gaeguli-test-common-2.0.pc \
+"
