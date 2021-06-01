@@ -5,19 +5,17 @@ HOMEPAGE = "https://github.com/Haivision/srt"
 
 LIC_FILES_CHKSUM = "file://LICENSE;md5=815ca599c9df247a0c7f619bab123dad"
 
-S = "${WORKDIR}/git"
+SRC_URI = "https://github.com/Haivision/srt/archive/refs/tags/v${PV}.tar.gz"
+SRC_URI[sha256sum] = "c06e05664c71d635c37207a2b5a444f2c4a95950a3548402b3e0c524f735b33d"
+
+S = "${WORKDIR}/srt-${PV}"
 
 inherit pkgconfig cmake 
-
-SRCREV = "fe6446da4fd9c30e3258dcf3dba05dd627536148"
-PV .= "+git${SRCPV}"
-
-SRC_URI = " \
-    git://github.com/hwangsaeul/libsrt.git;protocol=https;branch=master \
-"
 
 DEPENDS = "openssl" 
 
 do_install_prepend() {
   sed -i 's,#!/bin/bash,#!/bin/sh,' ${S}/scripts/srt-ffplay
 }
+
+ERROR_QA_remove_pn-srt = " src-uri-bad"
