@@ -11,13 +11,8 @@ DEPENDS = "glib-2.0 glib-2.0-native \
 
 inherit meson pkgconfig
 
-SRCREV = "7ca17e474be411ba713a3f1722082481e83d6de6"
-PV = "r1+git${SRCPV}"
+SRCREV = "cbcc8c907282722d6aec0c4f155f6c3a3f5a6f5c"
+PV = "2.0+git${SRCPV}"
 S = "${WORKDIR}/git"
 
 SRC_URI = "git://github.com/hwangsaeul/hwangsae;protocol=https;branch=master"
-
-FILES_${PN} += "\
-    ${datadir}/dbus-1 \
-    ${datadir}/glib-2.0/schemas \
-"
