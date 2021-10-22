@@ -11,7 +11,7 @@ DEPENDS = "glib-2.0 glib-2.0-native libsoup-2.4 gaeguli hwangsae"
 inherit meson pkgconfig useradd systemd gsettings
 
 SRCREV = "e8a6afe6d97720e1a9439e86f8bde8bf862196dd"
-PV = "r1+git${SRCPV}"
+PV = "r2+git${SRCPV}"
 S = "${WORKDIR}/git"
 
 SRC_URI = " \
@@ -41,6 +41,7 @@ FILES_${PN}-mjpeg = "\
 
 FILES_${PN}-source = "\
     ${bindir}/gaeul2-source-agent \
+    ${bindir}/gaeul-source-push-text \
     ${libdir}/libgaeul-source-2.0.so.* \
     ${datadir}/dbus-1/system.d/org.hwangsaeul.Gaeul2.Source.conf \
     ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.Source.gschema.xml \
