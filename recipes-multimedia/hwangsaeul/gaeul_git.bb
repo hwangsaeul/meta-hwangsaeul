@@ -10,7 +10,7 @@ DEPENDS = "glib-2.0 glib-2.0-native libsoup-2.4 gaeguli hwangsae"
 
 inherit meson pkgconfig useradd systemd gsettings
 
-SRCREV = "dcff238dd7e72d97b158da931c431ab71e6cf9f9"
+SRCREV = "e8a6afe6d97720e1a9439e86f8bde8bf862196dd"
 PV = "r1+git${SRCPV}"
 S = "${WORKDIR}/git"
 
