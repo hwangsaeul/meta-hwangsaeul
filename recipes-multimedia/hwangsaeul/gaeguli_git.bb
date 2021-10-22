@@ -12,7 +12,7 @@ DEPENDS = "glib-2.0 glib-2.0-native json-glib libsoup-2.4 libnl \
 
 inherit meson pkgconfig
 
-SRCREV = "1dca553f04773c68d1081fb87fc4d958ba56bea5"
+SRCREV = "110822e039888b2fcc8a400e6fd20a88dd956fa2"
 PV = "1.99+git${SRCPV}"
 S = "${WORKDIR}/git"
 
