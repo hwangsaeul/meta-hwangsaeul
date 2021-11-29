@@ -25,21 +25,21 @@ PACKAGES += "\
     ${PN}-source \
 "
 
-FILES_${PN} = "\
+FILES:${PN} = "\
     ${localstatedir}/hwangsaeul/gaeul2/conf/gaeul2.ini \
     ${libdir}/libgaeul-2.0.so.* \
     ${sysconfdir}/default \
     ${sysconfdir}/gaeul2 \
 "
 
-FILES_${PN}-mjpeg = "\
+FILES:${PN}-mjpeg = "\
     ${bindir}/gaeul2-mjpeg-agent \
     ${libdir}/libgaeul-mjpeg-2.0.so.* \
     ${datadir}/dbus-1/system.d/org.hwangsaeul.Gaeul2.MJPEG.conf \
     ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.MJPEG.gschema.xml \
 "
 
-FILES_${PN}-source = "\
+FILES:${PN}-source = "\
     ${bindir}/gaeul2-source-agent \
     ${bindir}/gaeul-source-push-text \
     ${libdir}/libgaeul-source-2.0.so.* \
@@ -47,21 +47,21 @@ FILES_${PN}-source = "\
     ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.Source.gschema.xml \
 "
 
-FILES_${PN}-relay += "\
+FILES:${PN}-relay += "\
     ${bindir}/gaeul2-relay-agent \
     ${libdir}/libgaeul-relay-2.0.so.* \
     ${datadir}/dbus-1/system.d/org.hwangsaeul.Gaeul2.Relay.conf \
     ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.Relay.gschema.xml \
 "
 
-SYSTEMD_SERVICE_${PN}-source = "gaeul2-source-agent.service"
-SYSTEMD_AUTO_ENABLE_gaeul2-source-agent = "enable"
+SYSTEMD_SERVICE:${PN}-source = "gaeul2-source-agent.service"
+SYSTEMD_AUTO_ENABLE:gaeul2-source-agent = "enable"
 
 GAEUL2_AGENT_USER = "gaeul"
 GAEUL2_AGENT_DIR = "${localstatedir}/hwangsaeul/gaeul2"
 GAEUL2_AGENT_CONFDIR = "${localstatedir}/hwangsaeul/gaeul2/conf"
 
-do_install_append() {
+do_install:append() {
 
     # consider systemd only
     install -d ${D}${systemd_unitdir}/system
@@ -83,7 +83,7 @@ do_install_append() {
 }
 
 USERADD_PACKAGES = "${PN}"
-USERADD_PARAM_${PN} = " \
+USERADD_PARAM:${PN} = " \
     --system --no-create-home \
     --home ${localstatedir}/gaeul2 \
     --groups video,audio,plugdev \

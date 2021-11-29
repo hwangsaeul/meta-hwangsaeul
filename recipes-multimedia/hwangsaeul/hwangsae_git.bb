@@ -22,15 +22,15 @@ PACKAGE_BEFORE_PN = "\
     ${PN}-test \
     ${PN}-recorder \
 "
-RDEPENDS_${PN}-recorder += "${PN}"
-RDEPENDS_${PN}-test += "${PN}"
+RDEPENDS:${PN}-recorder += "${PN}"
+RDEPENDS:${PN}-test += "${PN}"
 
-FILES_${PN}-recorder += "\
+FILES:${PN}-recorder += "\
     ${libdir}/libhwangsae-dbus-2.0.so.* \
     ${datadir}/dbus-1/* \
     ${datadir}/glib-2.0/schemas/* \
 "
 
-FILES_${PN}-test += "\
+FILES:${PN}-test += "\
     ${libdir}/libhwangsae-test-common-2.0.so.* \
 "

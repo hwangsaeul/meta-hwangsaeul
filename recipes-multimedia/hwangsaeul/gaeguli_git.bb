@@ -24,16 +24,16 @@ PACKAGE_BEFORE_PN += "\
     ${PN}-test-dev \
 "
 
-FILES_${PN}-adaptor-demo = "\
+FILES:${PN}-adaptor-demo = "\
     ${bindir}/gaeguli-adaptor-demo \
     ${libexecdir}/gaeguli-tc-helper \
 "
 
-FILES_${PN}-test = "\
+FILES:${PN}-test = "\
     ${libdir}/libgaeguli-test-common-2.0.so.* \
 "
 
-FILES_${PN}-test-dev = "\
+FILES:${PN}-test-dev = "\
     ${includedir}/gaeguli-2.0/gaeguli/test/* \
     ${libdir}/libgaeguli-test-common-2.0.so \
     ${libdir}/pkgconfig/gaeguli-test-common-2.0.pc \

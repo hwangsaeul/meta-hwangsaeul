@@ -14,8 +14,8 @@ inherit pkgconfig cmake
 
 DEPENDS = "openssl" 
 
-do_install_prepend() {
+do_install:prepend() {
   sed -i 's,#!/bin/bash,#!/bin/sh,' ${S}/scripts/srt-ffplay
 }
 
-ERROR_QA_remove_pn-srt = " src-uri-bad"
+ERROR_QA:remove:pn-srt = " src-uri-bad"

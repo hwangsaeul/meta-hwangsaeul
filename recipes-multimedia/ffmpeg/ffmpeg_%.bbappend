@@ -1,3 +1,3 @@
-DEPENDS_append = " srt" 
-PACKAGECONFIG_append = " srt"
-EXTRA_OECONF_append = " --enable-libsrt "
+DEPENDS:append = " srt" 
+PACKAGECONFIG:append = " srt"
+EXTRA_OECONF:append = " --enable-libsrt "
