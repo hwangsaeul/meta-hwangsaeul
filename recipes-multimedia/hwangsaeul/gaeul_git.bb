@@ -45,6 +45,7 @@ FILES:${PN}-source = "\
     ${libdir}/libgaeul-source-2.0.so.* \
     ${datadir}/dbus-1/system.d/org.hwangsaeul.Gaeul2.Source.conf \
     ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.Source.gschema.xml \
+    ${systemd_unitdir} \
 "
 
 FILES:${PN}-relay += "\
