@@ -11,7 +11,7 @@ DEPENDS = "glib-2.0 glib-2.0-native libsoup-2.4 gaeguli hwangsae"
 inherit meson pkgconfig useradd systemd gsettings
 
 SRCREV = "e8a6afe6d97720e1a9439e86f8bde8bf862196dd"
-PV = "r2+git${SRCPV}"
+PV = "r3+git${SRCPV}"
 S = "${WORKDIR}/git"
 
 SRC_URI = " \
@@ -26,7 +26,7 @@ PACKAGES += "\
 "
 
 FILES:${PN} = "\
-    ${localstatedir}/hwangsaeul/gaeul2/conf/gaeul2.ini \
+    ${localstatedir}/lib/hwangsaeul/gaeul2/conf/gaeul2.ini \
     ${libdir}/libgaeul-2.0.so.* \
     ${sysconfdir}/default \
     ${sysconfdir}/gaeul2 \
@@ -59,8 +59,8 @@ SYSTEMD_SERVICE:${PN}-source = "gaeul2-source-agent.service"
 SYSTEMD_AUTO_ENABLE:gaeul2-source-agent = "enable"
 
 GAEUL2_AGENT_USER = "gaeul"
-GAEUL2_AGENT_DIR = "${localstatedir}/hwangsaeul/gaeul2"
-GAEUL2_AGENT_CONFDIR = "${localstatedir}/hwangsaeul/gaeul2/conf"
+GAEUL2_AGENT_DIR = "${localstatedir}/lib/hwangsaeul/gaeul2"
+GAEUL2_AGENT_CONFDIR = "${localstatedir}/lib/hwangsaeul/gaeul2/conf"
 
 do_install:append() {
 
@@ -80,13 +80,15 @@ do_install:append() {
     chown ${GAEUL2_AGENT_USER} -R ${D}${GAEUL2_AGENT_DIR}
 
     install -d ${D}${sysconfdir}/gaeul2
-    install -m 0644 ${D}${GAEUL2_AGENT_CONFDIR}/gaeul2.ini ${D}${sysconfdir}/gaeul2/gaeul2.ini
+    cd ${D}${sysconfdir}/gaeul2
+
+    ln -s -r ${D}${GAEUL2_AGENT_CONFDIR}/gaeul2.ini 
 }
 
 USERADD_PACKAGES = "${PN}"
 USERADD_PARAM:${PN} = " \
-    --system --no-create-home \
-    --home ${localstatedir}/gaeul2 \
+    --system \
+    --home ${localstatedir}/lib/hwangsaeul/gaeul2 \
     --groups video,audio,plugdev \
     --user-group ${GAEUL2_AGENT_USER} \
 "
