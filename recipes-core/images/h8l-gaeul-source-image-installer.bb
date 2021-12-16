@@ -1,4 +1,7 @@
-require image.inc
+require h8l-image.inc
+
+SUMMARY = "Realtime video encoder image installer"
+LICENSE = "Apache-2.0"
 
 WKS_FILE = "image-installer.wks.in"
 IMAGE_FSTYPES:append = " ext4"

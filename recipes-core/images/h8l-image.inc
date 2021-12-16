@@ -1,7 +1,3 @@
-SUMMARY = "Realtime video encoder image"
-
-LICENSE = "Apache-2.0"
-
 IMAGE_FEATURES += "splash package-management ssh-server-dropbear hwcodecs"
 
 inherit core-image
