@@ -11,7 +11,7 @@ DEPENDS = "glib-2.0 glib-2.0-native libsoup-2.4 gaeguli hwangsae"
 inherit meson pkgconfig useradd systemd gsettings
 
 SRCREV = "e8a6afe6d97720e1a9439e86f8bde8bf862196dd"
-PV = "r3+git${SRCPV}"
+PV = "r4+git${SRCPV}"
 S = "${WORKDIR}/git"
 
 SRC_URI = " \
@@ -54,6 +54,8 @@ FILES:${PN}-relay += "\
     ${datadir}/dbus-1/system.d/org.hwangsaeul.Gaeul2.Relay.conf \
     ${datadir}/glib-2.0/schemas/org.hwangsaeul.Gaeul2.Relay.gschema.xml \
 "
+
+PROVIDES = "${PACKAGES}"
 
 SYSTEMD_SERVICE:${PN}-source = "gaeul2-source-agent.service"
 SYSTEMD_AUTO_ENABLE:gaeul2-source-agent = "enable"
