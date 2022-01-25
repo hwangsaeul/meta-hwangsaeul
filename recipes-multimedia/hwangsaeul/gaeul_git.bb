@@ -17,6 +17,7 @@ S = "${WORKDIR}/git"
 SRC_URI = " \
     git://github.com/hwangsaeul/gaeul;protocol=https;branch=master \
     file://gaeul2.ini \
+    file://channel.ini \
 "
 
 PACKAGES += "\
@@ -27,6 +28,7 @@ PACKAGES += "\
 
 FILES:${PN} = "\
     ${localstatedir}/lib/hwangsaeul/gaeul2/conf/gaeul2.ini \
+    ${localstatedir}/lib/hwangsaeul/gaeul2/conf/channel.ini \
     ${libdir}/libgaeul-2.0.so.* \
     ${sysconfdir}/default \
     ${sysconfdir}/gaeul2 \
@@ -78,13 +80,22 @@ do_install:append() {
     install -d ${D}${GAEUL2_AGENT_CONFDIR}
     install -m 0644 ${WORKDIR}/gaeul2.ini \
                     ${D}${GAEUL2_AGENT_CONFDIR}/
+    install -m 0664 ${WORKDIR}/channel.ini \
+                    ${D}${GAEUL2_AGENT_CONFDIR}/
 
     chown ${GAEUL2_AGENT_USER} -R ${D}${GAEUL2_AGENT_DIR}
 
     install -d ${D}${sysconfdir}/gaeul2
     cd ${D}${sysconfdir}/gaeul2
 
-    ln -s -r ${D}${GAEUL2_AGENT_CONFDIR}/gaeul2.ini 
+    ln -s -r ${D}${GAEUL2_AGENT_CONFDIR}/gaeul2.ini
+
+    install -d ${D}${sysconfdir}/gaeul2/conf.d
+    cd ${D}${sysconfdir}/gaeul2/conf.d
+
+    ln -s -r ${D}${GAEUL2_AGENT_CONFDIR}/channel.ini
+
+    chown ${GAEUL2_AGENT_USER}:${GAEUL2_AGENT_USER} -R ${D}${sysconfdir}/gaeul2
 }
 
 USERADD_PACKAGES = "${PN}"
